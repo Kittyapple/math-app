@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>数字宠物大冒险</title>
+    <!-- 关联 App 配置文件 -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#ff9800">
+    <style>
+        :root { --primary-color: #ff9800; --bg-color: #f0f4f8; }
+        body { font-family: sans-serif; background-color: var(--bg-color); margin: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; touch-action: manipulation; }
+        .header { width: 100%; padding: 15px; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-around; font-weight: bold; }
+        #pet-container { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        #pet-avatar { font-size: 80px; margin-bottom: 10px; animation: bounce 2s infinite; }
+        #pet-name { background: var(--primary-color); color: white; padding: 5px 15px; border-radius: 20px; font-size: 14px; }
+        .progress-container { width: 80%; height: 12px; background: #ddd; border-radius: 6px; margin: 10px 0; overflow: hidden; }
+        #progress-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #4caf50, #8bc34a); transition: width 0.3s; }
+        .question-box { background: white; width: 90%; border-radius: 20px; padding: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        #question-text { font-size: 32px; color: #333; margin-bottom: 15px; }
+        #user-input { font-size: 28px; border: 2px solid #ddd; border-radius: 10px; width: 120px; text-align: center; padding: 5px; background: #f9f9f9; }
+        .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 90%; margin-bottom: 20px; }
+        .numpad button { padding: 15px; font-size: 24px; background: white; border: 1px solid #ddd; border-radius: 12px; }
+        .submit-btn { grid-column: span 2; background: var(--primary-color) !important; color: white; font-weight: bold; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <span>等级: <span id="level-val">0</span></span>
+        <span>经验: <span id="xp-val">0</span></span>
+        <span>连击: 🔥<span id="combo-val">0</span></span>
+    </div>
+    <div id="pet-container">
+        <div id="pet-avatar">🥚</div>
+        <div id="pet-name">萌萌蛋</div>
+        <div class="progress-container"><div id="progress-bar"></div></div>
+    </div>
+    <div class="question-box">
+        <div id="question-text">加载中...</div>
+        <input type="number" id="user-input" readonly placeholder="?">
+    </div>
+    <div class="numpad">
+        <button onclick="pressNum(1)">1</button><button onclick="pressNum(2)">2</button><button onclick="pressNum(3)">3</button>
+        <button onclick="pressNum(4)">4</button><button onclick="pressNum(5)">5</button><button onclick="pressNum(6)">6</button>
+        <button onclick="pressNum(7)">7</button><button onclick="pressNum(8)">8</button><button onclick="pressNum(9)">9</button>
+        <button onclick="pressNum(0)">0</button><button onclick="clearInput()">C</button>
+        <button class="submit-btn" onclick="checkAnswer()">确定</button>
+    </div>
+    <script>
+        const stages = [{threshold:0,name:"萌萌蛋",icon:"🥚"},{threshold:100,name:"幼苗期",icon:"🐣"},{threshold:300,name:"成长期",icon:"🐥"},{threshold:800,name:"进化期",icon:"🦅"},{threshold:2000,name:"幻兽期",icon:"🐲"}];
+        let state = JSON.parse(localStorage.getItem('math_pet_save')) || {xp:0,combo:0,level:0};
+        let currentAnswer = 0;
+        function newQuestion() {
+            const a = Math.floor(Math.random() * 10) + 1;
+            const b = Math.floor(Math.random() * 10) + 1;
+            const op = Math.random() > 0.5 ? '+' : '-';
+            if(op === '-' && a < b) { currentAnswer = b - a; document.getElementById('question-text').innerText = `${b} - ${a} = ?`; }
+            else { currentAnswer = op === '+' ? a + b : a - b; document.getElementById('question-text').innerText = `${a} ${op} ${b} = ?`; }
+            document.getElementById('user-input').value = "";
+        }
+        function pressNum(n) { document.getElementById('user-input').value += n; }
+        function clearInput() { document.getElementById('user-input').value = ""; }
+        function checkAnswer() {
+            const val = parseInt(document.getElementById('user-input').value);
+            if(val === currentAnswer) {
+                state.combo++;
+                state.xp += (10 + (state.combo > 3 ? 5 : 0));
+                newQuestion();
+            } else { state.combo = 0; alert("再算一次？"); clearInput(); }
+            checkEvolution(); updateUI(); save();
+        }
+        function checkEvolution() {
+            let lvl = 0;
+            stages.forEach((s, i) => { if(state.xp >= s.threshold) lvl = i; });
+            if(lvl > state.level) { state.level = lvl; alert("进化啦！"); }
+        }
+        function updateUI() {
+            document.getElementById('xp-val').innerText = state.xp;
+            document.getElementById('level-val').innerText = state.level;
+            document.getElementById('combo-val').innerText = state.combo;
+            document.getElementById('pet-avatar').innerText = stages[state.level].icon;
+            document.getElementById('pet-name').innerText = stages[state.level].name;
+            const next = stages[state.level+1] ? stages[state.level+1].threshold : state.xp+100;
+            const prev = stages[state.level].threshold;
+            document.getElementById('progress-bar').style.width = Math.min(((state.xp-prev)/(next-prev))*100, 100) + "%";
+        }
+        function save() { localStorage.setItem('math_pet_save', JSON.stringify(state)); }
+        newQuestion(); updateUI();
+    </script>
+</body>
+</html>
